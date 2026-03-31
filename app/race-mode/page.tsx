@@ -131,6 +131,10 @@ export default function RaceModePage() {
 
   const remainingSeconds =
     raceStartMs != null ? Math.max(Math.floor((raceStartMs - now) / 1000), 0) : null;
+  const isFinalTenSeconds =
+    liveSession?.status === "countdown" &&
+    remainingSeconds != null &&
+    remainingSeconds <= 10;
 
   useEffect(() => {
     if (!selectedCourse || !marks.length) return;
@@ -291,18 +295,38 @@ export default function RaceModePage() {
               />
             </section>
 
-            <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 text-center">
-              <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+            <section
+              className={`mt-4 rounded-3xl border p-6 text-center ${
+                isFinalTenSeconds
+                  ? "border-red-700 bg-red-950/60"
+                  : "border-zinc-800 bg-zinc-950"
+              }`}
+            >
+              <p
+                className={`text-xs uppercase tracking-[0.22em] ${
+                  isFinalTenSeconds ? "text-red-200" : "text-zinc-500"
+                }`}
+              >
                 Countdown
               </p>
-              <p className="mt-4 text-7xl font-bold tabular-nums tracking-tight text-white">
+              <p
+                className={`mt-4 font-bold tabular-nums tracking-tight text-white ${
+                  isFinalTenSeconds ? "text-8xl" : "text-7xl"
+                }`}
+              >
                 {remainingSeconds != null ? formatCountdown(remainingSeconds) : "--:--"}
               </p>
-              <p className="mt-4 text-sm text-zinc-400">
+              <p
+                className={`mt-4 text-sm ${
+                  isFinalTenSeconds ? "text-red-100" : "text-zinc-400"
+                }`}
+              >
                 {liveSession.status === "waiting"
                   ? "Published and waiting for race officer"
                   : liveSession.status === "countdown"
-                    ? "Official countdown running"
+                    ? isFinalTenSeconds
+                      ? "Final ten-second count"
+                      : "Official countdown running"
                     : liveSession.status === "started"
                       ? "Race started"
                       : "Live race loaded"}

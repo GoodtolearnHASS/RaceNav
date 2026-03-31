@@ -67,6 +67,7 @@ export default function TimerPage() {
   const gpsLabel = loading ? "GPS..." : error ? "GPS ERR" : "GPS OK";
   const gpsAccuracy =
     loading || error ? "--" : `${position?.accuracyM?.toFixed(0) ?? "--"}m`;
+  const isFinalTenSeconds = countdownRunning && countdownSeconds <= 10;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -136,11 +137,25 @@ export default function TimerPage() {
           ))}
         </section>
 
-        <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 text-center">
-          <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+        <section
+          className={`mt-4 rounded-3xl border p-6 text-center ${
+            isFinalTenSeconds
+              ? "border-red-700 bg-red-950/60"
+              : "border-zinc-800 bg-zinc-950"
+          }`}
+        >
+          <p
+            className={`text-xs uppercase tracking-[0.22em] ${
+              isFinalTenSeconds ? "text-red-200" : "text-zinc-500"
+            }`}
+          >
             Countdown
           </p>
-          <p className="mt-4 text-7xl font-bold tabular-nums tracking-tight text-white">
+          <p
+            className={`mt-4 font-bold tabular-nums tracking-tight text-white ${
+              isFinalTenSeconds ? "text-8xl" : "text-7xl"
+            }`}
+          >
             {formatCountdown(countdownSeconds)}
           </p>
         </section>

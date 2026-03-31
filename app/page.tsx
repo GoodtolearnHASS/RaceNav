@@ -149,7 +149,7 @@ export default function HomePage() {
             <Image
               src="/HSBC.png"
               alt="HSBC Race Nav logo"
-              width={52}
+              width={43}
               height={52}
               className="rounded-2xl"
             />
@@ -169,7 +169,7 @@ export default function HomePage() {
             <Image
               src="/HSBC.png"
               alt="HSBC Race Nav logo"
-              width={52}
+              width={43}
               height={52}
               className="rounded-2xl"
             />
@@ -255,7 +255,7 @@ export default function HomePage() {
             <Image
               src="/HSBC.png"
               alt="HSBC Race Nav logo"
-              width={56}
+              width={47}
               height={56}
               className="rounded-2xl"
             />

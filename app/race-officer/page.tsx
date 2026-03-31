@@ -64,10 +64,17 @@ export default function RaceOfficerPage() {
   const remainingSeconds =
     raceStartMs != null ? Math.max(Math.floor((raceStartMs - now) / 1000), 0) : null;
 
+  const elapsedSinceStartSeconds =
+    raceStartMs != null && now >= raceStartMs
+      ? Math.floor((now - raceStartMs) / 1000)
+      : null;
+
   const isFinalTenSeconds =
     liveSession?.status === "countdown" &&
     remainingSeconds != null &&
     remainingSeconds <= 10;
+
+  const showElapsedRaceTime = elapsedSinceStartSeconds != null;
 
   useEffect(() => {
     setMounted(true);
@@ -368,7 +375,7 @@ export default function RaceOfficerPage() {
                   <p>
                     Countdown:{" "}
                     <span className="font-semibold text-white">
-                      {liveSession.countdown_seconds ?? 0}s
+                      {formatCountdown(liveSession.countdown_seconds ?? 0)}
                     </span>
                   </p>
                   <p>
@@ -392,28 +399,42 @@ export default function RaceOfficerPage() {
             {liveSession ? (
               <section
                 className={`mt-4 rounded-3xl border p-6 text-center ${
-                  isFinalTenSeconds
+                  showElapsedRaceTime
+                    ? "border-emerald-800 bg-emerald-950/40"
+                    : isFinalTenSeconds
                     ? "border-red-700 bg-red-950/60"
                     : "border-zinc-800 bg-zinc-950"
                 }`}
               >
                 <p
                   className={`text-xs uppercase tracking-[0.22em] ${
-                    isFinalTenSeconds ? "text-red-200" : "text-zinc-500"
+                    showElapsedRaceTime
+                      ? "text-emerald-200"
+                      : isFinalTenSeconds
+                        ? "text-red-200"
+                        : "text-zinc-500"
                   }`}
                 >
-                  Official Countdown
+                  {showElapsedRaceTime ? "Race Elapsed" : "Official Countdown"}
                 </p>
                 <p
                   className={`mt-4 font-bold tabular-nums tracking-tight text-white ${
                     isFinalTenSeconds ? "text-8xl" : "text-7xl"
                   }`}
                 >
-                  {remainingSeconds != null ? formatCountdown(remainingSeconds) : "--:--"}
+                  {showElapsedRaceTime
+                    ? formatCountdown(elapsedSinceStartSeconds)
+                    : remainingSeconds != null
+                      ? formatCountdown(remainingSeconds)
+                      : "--:--"}
                 </p>
                 <p
                   className={`mt-4 text-sm ${
-                    isFinalTenSeconds ? "text-red-100" : "text-zinc-400"
+                    showElapsedRaceTime
+                      ? "text-emerald-100"
+                      : isFinalTenSeconds
+                        ? "text-red-100"
+                        : "text-zinc-400"
                   }`}
                 >
                   {liveSession.status === "waiting"
@@ -423,7 +444,7 @@ export default function RaceOfficerPage() {
                         ? "Final ten-second count"
                         : "Use this timer for radio countdown calls"
                       : liveSession.status === "started"
-                        ? "Race started"
+                        ? "Elapsed time since the official start"
                         : "Live race loaded"}
                 </p>
               </section>
