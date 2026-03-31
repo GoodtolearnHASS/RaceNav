@@ -10,30 +10,9 @@ import {
   formatNm,
 } from "@/lib/navigation/format";
 import { useRaceStore } from "@/lib/store/raceStore";
-import HomeButton from "@/components/HomeButton";
-
-function formatRaceTime(ms: number) {
-  const totalSeconds = Math.max(Math.floor(ms / 1000), 0);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-      2,
-      "0"
-    )}:${String(seconds).padStart(2, "0")}`;
-  }
-
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
-    2,
-    "0"
-  )}`;
-}
 
 export default function RacePage() {
   const [mounted, setMounted] = useState(false);
-  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     setMounted(true);
@@ -45,23 +24,12 @@ export default function RacePage() {
   const nextLeg = useRaceStore((state) => state.nextLeg);
   const previousLeg = useRaceStore((state) => state.previousLeg);
   const resetRace = useRaceStore((state) => state.resetRace);
-  const raceStartedAt = useRaceStore((state) => state.raceStartedAt);
 
   const activeLeg = resolvedLegs[activeLegIndex] ?? null;
   const nextLegItem = resolvedLegs[activeLegIndex + 1] ?? null;
 
   const { position, error, loading } = useGpsPosition();
   const metrics = buildRaceMetrics(position, resolvedLegs, activeLegIndex);
-
-  useEffect(() => {
-    if (!raceStartedAt) return;
-
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [raceStartedAt]);
 
   if (!mounted) {
     return (
@@ -82,47 +50,37 @@ export default function RacePage() {
       ? "0 / 0"
       : `${activeLegIndex + 1} / ${resolvedLegs.length}`;
 
-  const raceTime = raceStartedAt ? formatRaceTime(now - raceStartedAt) : "--:--";
-
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-28 pt-4">
-        
-		<header className="sticky top-0 z-20 bg-black/95 pb-3 pt-2 backdrop-blur">
-  <div className="grid grid-cols-3 items-center gap-2">
-    <div className="flex justify-start">
-      <HomeButton />
-    </div>
+        <header className="sticky top-0 z-20 bg-black/95 pb-3 pt-2 backdrop-blur">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                Race Nav
+              </p>
+              <p className="mt-1 text-sm font-medium uppercase tracking-[0.18em] text-zinc-300">
+                {boatClass || "No Class"}
+              </p>
+            </div>
 
-    <div className="flex justify-center">
-      <div className="rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2">
-        <span className="text-sm font-bold tabular-nums text-white">
-          Race: {raceTime}
-        </span>
-      </div>
-    </div>
-
-    <div className="flex justify-end">
-      <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2">
-        <span
-          className={`h-2.5 w-2.5 rounded-full ${
-            !loading && !error
-              ? "bg-green-400"
-              : error
-                ? "bg-red-400"
-                : "bg-amber-400"
-          }`}
-        />
-        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-200">
-          {gpsLabel}
-        </span>
-        <span className="text-xs text-zinc-400">{gpsAccuracy}</span>
-      </div>
-    </div>
-  </div>
-</header>
-		
-		
+            <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  !loading && !error
+                    ? "bg-green-400"
+                    : error
+                      ? "bg-red-400"
+                      : "bg-amber-400"
+                }`}
+              />
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-200">
+                {gpsLabel}
+              </span>
+              <span className="text-xs text-zinc-400">{gpsAccuracy}</span>
+            </div>
+          </div>
+        </header>
 
         <section className="mt-3 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
           <div className="flex items-start justify-between gap-4">

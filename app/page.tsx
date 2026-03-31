@@ -132,7 +132,7 @@ export default function HomePage() {
 
   if (!mounted || checkingAuth) {
     return (
-      <main className="min-h-screen bg-black text-white p-4">
+      <main className="min-h-screen bg-black p-4 text-white">
         <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
           <h1 className="text-4xl font-bold tracking-tight">Race Nav</h1>
           <p className="mt-3 text-zinc-300">Loading...</p>
@@ -143,7 +143,7 @@ export default function HomePage() {
 
   if (!isSignedIn) {
     return (
-      <main className="min-h-screen bg-black text-white p-4">
+      <main className="min-h-screen bg-black p-4 text-white">
         <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
           <h1 className="text-4xl font-bold tracking-tight">Race Nav</h1>
           <p className="mt-3 text-zinc-300">
@@ -201,66 +201,91 @@ export default function HomePage() {
     .filter((mark) => mark.latitude_decimal != null && mark.longitude_decimal != null)
     .map(mapDbMarkToMark);
 
-  function handleStartRace() {
+  function handleStartManualMode() {
     if (!selectedCourse) return;
     startRace(selectedCourse, boatClass, marks);
-    router.push("/race");
+    router.push("/timer");
+  }
+
+  function handleJoinRaceMode() {
+    router.push("/race-mode");
   }
 
   return (
-    <main className="min-h-screen bg-black text-white p-4">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
-        <h1 className="text-4xl font-bold tracking-tight">Race Nav</h1>
-        <p className="mt-3 text-zinc-300">Select course and class to begin.</p>
-
-        <div className="mt-4">
-          <AuthStatus />
+    <main className="min-h-screen bg-black p-4 text-white">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col">
+        <div className="pt-6">
+          <h1 className="text-4xl font-bold tracking-tight">Race Nav</h1>
+          <p className="mt-3 text-zinc-300">Choose how you want to race.</p>
         </div>
 
-        <div className="mt-4 space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-300">Profile</p>
-            <p className="text-xs text-zinc-500">
-              Boat details for race history and display.
-            </p>
-          </div>
+        <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+  <AuthStatus />
+</div>
+<div className="mt-3 flex flex-wrap gap-2">
+  {displayName ? (
+    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
+      {displayName}
+    </div>
+  ) : null}
 
-          <input
-            type="text"
-            placeholder="Your name"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-white"
-          />
+  {boatName ? (
+    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
+      {boatName}
+    </div>
+  ) : null}
+</div>
 
-          <input
-            type="text"
-            placeholder="Boat name"
-            value={boatName}
-            onChange={(e) => setBoatName(e.target.value)}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-white"
-          />
+       
+            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+              <p className="text-sm font-medium text-zinc-200">Race Mode</p>
+              <p className="mt-1 text-sm text-zinc-400">
+                Join the live race published by the race officer.
+              </p>
 
-          <button
-            onClick={handleSaveProfile}
-            disabled={profileBusy}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-white disabled:opacity-50"
-          >
-            {profileBusy ? "Saving..." : "Save Profile"}
-          </button>
+              <div className="mt-5">
+                <p className="mb-2 block text-sm font-medium text-zinc-300">
+                  Class
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBoatClass("cruisers2")}
+                    className={`rounded-xl p-4 text-lg font-semibold ${
+                      boatClass === "cruisers2"
+                        ? "bg-white text-black"
+                        : "border border-zinc-700 bg-zinc-900 text-white"
+                    }`}
+                  >
+                    Cruisers 2
+                  </button>
 
-          {profileMessage && (
-            <p
-              className={
-                profileMessage === "Profile saved."
-                  ? "text-green-400"
-                  : "text-red-400"
-              }
-            >
-              {profileMessage}
-            </p>
-          )}
-        </div>
+                  <button
+                    type="button"
+                    onClick={() => setBoatClass("cruisers3")}
+                    className={`rounded-xl p-4 text-lg font-semibold ${
+                      boatClass === "cruisers3"
+                        ? "bg-white text-black"
+                        : "border border-zinc-700 bg-zinc-900 text-white"
+                    }`}
+                  >
+                    Cruisers 3
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={handleJoinRaceMode}
+                className="mt-5 h-16 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-xl font-bold text-white"
+              >
+                Join Race Mode
+              </button>
+            </section>
+
+
+	   
+       
+
 
         {loading ? (
           <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
@@ -271,87 +296,95 @@ export default function HomePage() {
             <p className="text-red-400">{error}</p>
           </div>
         ) : (
-          <div className="mt-8 space-y-6">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-zinc-300">
-                Course
-              </label>
-              <select
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-lg text-white"
-              >
-                {dbCourses.map((course) => {
-                  const distance =
-                    boatClass === "cruisers2"
-                      ? course.displayed_distance_long_nm
-                      : course.displayed_distance_short_nm;
-
-                  return (
-                    <option key={course.id} value={course.id}>
-                      {course.code} - {course.family_name} {course.course_number}
-                      {distance != null ? ` (${distance.toFixed(1)} nm)` : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            <div>
-              <p className="mb-2 block text-sm font-medium text-zinc-300">
-                Class
+          <div className="mt-8 space-y-6 pb-8">
+            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+              <p className="text-sm font-medium text-zinc-200">Manual Mode</p>
+              <p className="mt-1 text-sm text-zinc-400">
+                Choose a course and run your own timer.
               </p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setBoatClass("cruisers2")}
-                  className={`rounded-xl p-4 text-lg font-semibold ${
-                    boatClass === "cruisers2"
-                      ? "bg-white text-black"
-                      : "border border-zinc-700 bg-zinc-900 text-white"
-                  }`}
+
+              <div className="mt-5">
+                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                  Course
+                </label>
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-lg text-white"
                 >
-                  Cruisers 2
-                </button>
+                  {dbCourses.map((course) => {
+                    const distance =
+                      boatClass === "cruisers2"
+                        ? course.displayed_distance_long_nm
+                        : course.displayed_distance_short_nm;
 
-                <button
-                  type="button"
-                  onClick={() => setBoatClass("cruisers3")}
-                  className={`rounded-xl p-4 text-lg font-semibold ${
-                    boatClass === "cruisers3"
-                      ? "bg-white text-black"
-                      : "border border-zinc-700 bg-zinc-900 text-white"
-                  }`}
-                >
-                  Cruisers 3
-                </button>
+                    return (
+                      <option key={course.id} value={course.id}>
+                        {course.code} - {course.family_name} {course.course_number}
+                        {distance != null ? ` (${distance.toFixed(1)} nm)` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
-            </div>
 
-            {selectedDbCourse && (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300">
-                <p>
-                  Selected:{" "}
-                  <span className="font-semibold text-white">
-                    {selectedDbCourse.code}
-                  </span>
+              <div className="mt-5">
+                <p className="mb-2 block text-sm font-medium text-zinc-300">
+                  Class
                 </p>
-                <p>
-                  Raw:{" "}
-                  <span className="text-zinc-400">
-                    {selectedDbCourse.raw_sequence}
-                  </span>
-                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBoatClass("cruisers2")}
+                    className={`rounded-xl p-4 text-lg font-semibold ${
+                      boatClass === "cruisers2"
+                        ? "bg-white text-black"
+                        : "border border-zinc-700 bg-zinc-900 text-white"
+                    }`}
+                  >
+                    Cruisers 2
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBoatClass("cruisers3")}
+                    className={`rounded-xl p-4 text-lg font-semibold ${
+                      boatClass === "cruisers3"
+                        ? "bg-white text-black"
+                        : "border border-zinc-700 bg-zinc-900 text-white"
+                    }`}
+                  >
+                    Cruisers 3
+                  </button>
+                </div>
               </div>
-            )}
 
-            <button
-              onClick={handleStartRace}
-              disabled={!selectedCourse}
-              className="w-full rounded-2xl bg-blue-500 p-5 text-xl font-bold text-white disabled:opacity-50"
-            >
-              Start Race
-            </button>
+              {selectedDbCourse && (
+                <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/30 p-4 text-sm text-zinc-300">
+                  <p>
+                    Selected:{" "}
+                    <span className="font-semibold text-white">
+                      {selectedDbCourse.code}
+                    </span>
+                  </p>
+                  <p>
+                    Raw:{" "}
+                    <span className="text-zinc-400">
+                      {selectedDbCourse.raw_sequence}
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={handleStartManualMode}
+                disabled={!selectedCourse}
+                className="mt-5 h-16 w-full rounded-2xl bg-blue-500 text-xl font-bold text-white disabled:opacity-50"
+              >
+                Start Timer
+              </button>
+            </section>
+
           </div>
         )}
       </div>
