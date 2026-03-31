@@ -10,6 +10,7 @@ import { useRaceStore } from "@/lib/store/raceStore";
 import { useGpsPosition } from "@/lib/gps/useGpsPosition";
 import { buildRaceMetrics } from "@/lib/navigation/metrics";
 import { formatDegrees } from "@/lib/navigation/format";
+import { resolveCourseForClass } from "@/lib/navigation/courseResolver";
 import {
   fetchLiveRaceSession,
   type LiveRaceSession,
@@ -105,11 +106,10 @@ export default function RaceModePage() {
     [dbMarks]
   );
 
-  const resolvedPreviewLegs = selectedCourse
-    ? selectedCourse.legs.filter((leg) =>
-        boatClass === "cruisers3" ? !leg.optionalForShortClass : true
-      )
-    : [];
+  const resolvedPreviewLegs =
+    selectedCourse && marks.length
+      ? resolveCourseForClass(selectedCourse, boatClass, marks)
+      : [];
 
   const previewMetrics = buildRaceMetrics(position, resolvedPreviewLegs, 0);
   const firstLeg = resolvedPreviewLegs[0] ?? null;
