@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import AuthStatus from "@/components/AuthStatus";
-import type { BoatClass } from "@/lib/navigation/types";
 import type { DbCourse, DbCourseLeg, DbMark } from "@/lib/navigation/dbTypes";
 import { fetchCourseLegs, fetchCourses, fetchMarks } from "@/lib/supabase/queries";
 import { mapDbCourseToCourse, mapDbMarkToMark } from "@/lib/navigation/mappers";
@@ -12,13 +12,22 @@ import { getSession } from "@/lib/supabase/session";
 import { signInWithEmail } from "@/lib/supabase/auth";
 import { getMyProfile, updateMyProfile } from "@/lib/supabase/profile";
 
+const RACE_OFFICER_EMAILS = new Set([
+  "raceofficer@hsbc.ie",
+  "raceofficer2@hsbc.ie",
+  "john@jonix.ie",
+]);
+
 export default function HomePage() {
   const router = useRouter();
   const startRace = useRaceStore((state) => state.startRace);
+  const boatClass = useRaceStore((state) => state.boatClass);
+  const setBoatClass = useRaceStore((state) => state.setBoatClass);
 
   const [mounted, setMounted] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +37,6 @@ export default function HomePage() {
   const [dbMarks, setDbMarks] = useState<DbMark[]>([]);
 
   const [selectedCourseId, setSelectedCourseId] = useState("");
-  const [boatClass, setBoatClass] = useState<BoatClass>("cruisers2");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,9 +57,11 @@ export default function HomePage() {
       try {
         const session = await getSession();
         setIsSignedIn(!!session);
+        setCurrentEmail(session?.user.email?.toLowerCase() ?? null);
       } catch (err) {
         console.error(err);
         setIsSignedIn(false);
+        setCurrentEmail(null);
       } finally {
         setCheckingAuth(false);
       }
@@ -103,6 +113,7 @@ export default function HomePage() {
 
       await signInWithEmail(email, password);
       setIsSignedIn(true);
+      setCurrentEmail(email.toLowerCase());
     } catch (err) {
       console.error(err);
       setLoginError("Sign in failed.");
@@ -134,7 +145,16 @@ export default function HomePage() {
     return (
       <main className="min-h-screen bg-black p-4 text-white">
         <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
-          <h1 className="text-4xl font-bold tracking-tight">Race Nav</h1>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/HSBC.png"
+              alt="HSBC Race Nav logo"
+              width={52}
+              height={52}
+              className="rounded-2xl"
+            />
+            <h1 className="text-4xl font-bold tracking-tight">HSBC Race Nav</h1>
+          </div>
           <p className="mt-3 text-zinc-300">Loading...</p>
         </div>
       </main>
@@ -145,7 +165,16 @@ export default function HomePage() {
     return (
       <main className="min-h-screen bg-black p-4 text-white">
         <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
-          <h1 className="text-4xl font-bold tracking-tight">Race Nav</h1>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/HSBC.png"
+              alt="HSBC Race Nav logo"
+              width={52}
+              height={52}
+              className="rounded-2xl"
+            />
+            <h1 className="text-4xl font-bold tracking-tight">HSBC Race Nav</h1>
+          </div>
           <p className="mt-3 text-zinc-300">
             Sign in to select a course and start racing.
           </p>
@@ -211,33 +240,48 @@ export default function HomePage() {
     router.push("/race-mode");
   }
 
+  function handleOpenRaceOfficer() {
+    router.push("/race-officer");
+  }
+
+  const isRaceOfficerUser =
+    currentEmail != null && RACE_OFFICER_EMAILS.has(currentEmail);
+
   return (
     <main className="min-h-screen bg-black p-4 text-white">
       <div className="mx-auto flex min-h-screen max-w-md flex-col">
         <div className="pt-6">
-          <h1 className="text-4xl font-bold tracking-tight">Race Nav</h1>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/HSBC.png"
+              alt="HSBC Race Nav logo"
+              width={56}
+              height={56}
+              className="rounded-2xl"
+            />
+            <h1 className="text-4xl font-bold tracking-tight">HSBC Race Nav</h1>
+          </div>
           <p className="mt-3 text-zinc-300">Choose how you want to race.</p>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
-  <AuthStatus />
-</div>
-<div className="mt-3 flex flex-wrap gap-2">
-  {displayName ? (
-    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
-      {displayName}
-    </div>
-  ) : null}
+        {isRaceOfficerUser ? (
+          <section className="mt-4 rounded-3xl border border-amber-800 bg-amber-950/30 p-5">
+            <p className="text-sm font-medium text-amber-100">Race Officer</p>
+            <p className="mt-1 text-sm text-amber-200/80">
+              Open the control screen to publish and manage the live race.
+            </p>
 
-  {boatName ? (
-    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
-      {boatName}
-    </div>
-  ) : null}
-</div>
+            <button
+              onClick={handleOpenRaceOfficer}
+              className="mt-5 h-16 w-full rounded-2xl bg-amber-400 text-xl font-bold text-black"
+            >
+              Open Race Officer
+            </button>
+          </section>
+        ) : null}
 
        
-            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+            <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
               <p className="text-sm font-medium text-zinc-200">Race Mode</p>
               <p className="mt-1 text-sm text-zinc-400">
                 Join the live race published by the race officer.
@@ -383,6 +427,25 @@ export default function HomePage() {
               >
                 Start Timer
               </button>
+            </section>
+
+            <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
+              <AuthStatus compact />
+              {(displayName || boatName) ? (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-zinc-800 pt-3">
+                  {displayName ? (
+                    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
+                      {displayName}
+                    </div>
+                  ) : null}
+
+                  {boatName ? (
+                    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
+                      {boatName}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
 
           </div>

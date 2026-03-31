@@ -12,7 +12,9 @@ type RaceStore = {
   countdownInitialSeconds: number;
   countdownRunning: boolean;
   raceStartedAt: number | null;
+  raceEndedAt: number | null;
 
+  setBoatClass: (boatClass: BoatClass) => void;
   startRace: (course: Course, boatClass: BoatClass, marks: Mark[]) => void;
   nextLeg: () => void;
   previousLeg: () => void;
@@ -25,6 +27,7 @@ type RaceStore = {
   tickCountdown: () => void;
 
   startRaceClock: () => void;
+  endRaceClock: () => void;
   setRaceStartedAt: (timestamp: number | null) => void;
 };
 
@@ -38,6 +41,12 @@ export const useRaceStore = create<RaceStore>((set) => ({
   countdownInitialSeconds: 600,
   countdownRunning: false,
   raceStartedAt: null,
+  raceEndedAt: null,
+
+  setBoatClass: (boatClass) =>
+    set({
+      boatClass,
+    }),
 
   startRace: (course, boatClass, marks) =>
     set({
@@ -45,6 +54,7 @@ export const useRaceStore = create<RaceStore>((set) => ({
       boatClass,
       resolvedLegs: resolveCourseForClass(course, boatClass, marks),
       activeLegIndex: 0,
+      raceEndedAt: null,
     }),
 
   nextLeg: () =>
@@ -63,6 +73,7 @@ export const useRaceStore = create<RaceStore>((set) => ({
   resetRace: () =>
     set({
       activeLegIndex: 0,
+      raceEndedAt: null,
     }),
 
   setCountdownPreset: (seconds) =>
@@ -87,6 +98,7 @@ export const useRaceStore = create<RaceStore>((set) => ({
       countdownSeconds: state.countdownInitialSeconds,
       countdownRunning: false,
       raceStartedAt: null,
+      raceEndedAt: null,
     })),
 
   tickCountdown: () =>
@@ -111,12 +123,20 @@ export const useRaceStore = create<RaceStore>((set) => ({
   startRaceClock: () =>
     set({
       raceStartedAt: Date.now(),
+      raceEndedAt: null,
       countdownRunning: false,
       countdownSeconds: 0,
     }),
 
+  endRaceClock: () =>
+    set((state) => ({
+      raceEndedAt: state.raceStartedAt ? Date.now() : null,
+      countdownRunning: false,
+    })),
+
   setRaceStartedAt: (timestamp) =>
     set({
       raceStartedAt: timestamp,
+      raceEndedAt: null,
     }),
 }));

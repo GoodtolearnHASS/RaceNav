@@ -28,10 +28,18 @@ function formatDateTime(value: string | null) {
   return new Date(value).toLocaleString();
 }
 
+function formatCountdown(totalSeconds: number) {
+  const safe = Math.max(totalSeconds, 0);
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function RaceOfficerPage() {
   const [mounted, setMounted] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
 
   const [courses, setCourses] = useState<DbCourse[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
@@ -49,8 +57,28 @@ export default function RaceOfficerPage() {
     [courses, selectedCourseId]
   );
 
+  const raceStartMs = liveSession?.race_started_at
+    ? new Date(liveSession.race_started_at).getTime()
+    : null;
+
+  const remainingSeconds =
+    raceStartMs != null ? Math.max(Math.floor((raceStartMs - now) / 1000), 0) : null;
+
+  const isFinalTenSeconds =
+    liveSession?.status === "countdown" &&
+    remainingSeconds != null &&
+    remainingSeconds <= 10;
+
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -360,6 +388,46 @@ export default function RaceOfficerPage() {
                 <p className="mt-4 text-sm text-zinc-400">No live race published.</p>
               )}
             </section>
+
+            {liveSession ? (
+              <section
+                className={`mt-4 rounded-3xl border p-6 text-center ${
+                  isFinalTenSeconds
+                    ? "border-red-700 bg-red-950/60"
+                    : "border-zinc-800 bg-zinc-950"
+                }`}
+              >
+                <p
+                  className={`text-xs uppercase tracking-[0.22em] ${
+                    isFinalTenSeconds ? "text-red-200" : "text-zinc-500"
+                  }`}
+                >
+                  Official Countdown
+                </p>
+                <p
+                  className={`mt-4 font-bold tabular-nums tracking-tight text-white ${
+                    isFinalTenSeconds ? "text-8xl" : "text-7xl"
+                  }`}
+                >
+                  {remainingSeconds != null ? formatCountdown(remainingSeconds) : "--:--"}
+                </p>
+                <p
+                  className={`mt-4 text-sm ${
+                    isFinalTenSeconds ? "text-red-100" : "text-zinc-400"
+                  }`}
+                >
+                  {liveSession.status === "waiting"
+                    ? "Countdown not started yet"
+                    : liveSession.status === "countdown"
+                      ? isFinalTenSeconds
+                        ? "Final ten-second count"
+                        : "Use this timer for radio countdown calls"
+                      : liveSession.status === "started"
+                        ? "Race started"
+                        : "Live race loaded"}
+                </p>
+              </section>
+            ) : null}
 
             <section className="mt-4 grid grid-cols-1 gap-3">
               <button

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { BoatClass } from "@/lib/navigation/types";
 import type { DbCourse, DbCourseLeg, DbMark } from "@/lib/navigation/dbTypes";
 import { fetchCourseLegs, fetchCourses, fetchMarks } from "@/lib/supabase/queries";
 import { mapDbCourseToCourse, mapDbMarkToMark } from "@/lib/navigation/mappers";
@@ -29,6 +28,7 @@ export default function RaceModePage() {
 
   const startRace = useRaceStore((state) => state.startRace);
   const setRaceStartedAt = useRaceStore((state) => state.setRaceStartedAt);
+  const boatClass = useRaceStore((state) => state.boatClass);
 
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,6 @@ export default function RaceModePage() {
   const [dbMarks, setDbMarks] = useState<DbMark[]>([]);
 
   const [liveSession, setLiveSession] = useState<LiveRaceSession | null>(null);
-  const [boatClass, setBoatClass] = useState<BoatClass>("cruisers2");
   const [now, setNow] = useState(Date.now());
 
   const { position, error: gpsError, loading: gpsLoading } = useGpsPosition();
@@ -258,50 +257,38 @@ export default function RaceModePage() {
             </section>
 
             <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                Boat Class
-              </p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                    Bearing to Mark
+                  </p>
+                  <p className="mt-3 text-4xl font-bold leading-none tracking-tight text-white">
+                    {formatDegrees(previewMetrics.bearingToActiveDeg)}
+                  </p>
+                </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setBoatClass("cruisers2")}
-                  className={`h-14 rounded-2xl text-base font-semibold ${
-                    boatClass === "cruisers2"
-                      ? "bg-white text-black"
-                      : "border border-zinc-700 bg-zinc-900 text-white"
-                  }`}
-                >
-                  Cruisers 2
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setBoatClass("cruisers3")}
-                  className={`h-14 rounded-2xl text-base font-semibold ${
-                    boatClass === "cruisers3"
-                      ? "bg-white text-black"
-                      : "border border-zinc-700 bg-zinc-900 text-white"
-                  }`}
-                >
-                  Cruisers 3
-                </button>
+                <div className="text-right">
+                  <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                    COG
+                  </p>
+                  <p className="mt-3 text-4xl font-bold leading-none tracking-tight text-white">
+                    {formatDegrees(previewMetrics.cogTrueDeg)}
+                  </p>
+                </div>
               </div>
             </section>
 
-            <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                First Mark
-              </p>
-              <p className="mt-3 text-2xl font-semibold text-white">
-                {firstLeg?.mark.name ?? "No first mark"}
-              </p>
-              <p className="mt-3 text-sm text-zinc-300">
-                Bearing to First Mark{" "}
-                <span className="font-semibold text-white">
-                  {formatDegrees(previewMetrics.bearingToActiveDeg)}
-                </span>
-              </p>
+            <section className="mt-4 grid grid-cols-2 gap-3">
+              <MetricCard
+                label="Active Mark"
+                value={firstLeg?.mark.code ?? "-"}
+              />
+              <MetricCard
+                label="Distance"
+                value={previewMetrics.distanceToActiveNm != null
+                  ? `${previewMetrics.distanceToActiveNm.toFixed(2)} nm`
+                  : "--"}
+              />
             </section>
 
             <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-6 text-center">
@@ -339,5 +326,24 @@ export default function RaceModePage() {
         )}
       </div>
     </main>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-bold leading-none tabular-nums text-white">
+        {value}
+      </p>
+    </div>
   );
 }

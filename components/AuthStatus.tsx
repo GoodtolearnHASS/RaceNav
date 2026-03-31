@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, signOut } from "@/lib/supabase/auth";
 
-export default function AuthStatus() {
+export default function AuthStatus({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
 
@@ -33,6 +37,20 @@ export default function AuthStatus() {
 
   if (!email) {
     return <p className="text-sm text-zinc-400">Not signed in</p>;
+  }
+
+  if (compact) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-sm text-zinc-300">{email}</p>
+        <button
+          onClick={handleSignOut}
+          className="shrink-0 rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-medium text-white"
+        >
+          Sign Out
+        </button>
+      </div>
+    );
   }
 
   return (

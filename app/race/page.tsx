@@ -44,8 +44,9 @@ export default function RacePage() {
   const activeLegIndex = useRaceStore((state) => state.activeLegIndex);
   const nextLeg = useRaceStore((state) => state.nextLeg);
   const previousLeg = useRaceStore((state) => state.previousLeg);
-  const resetRace = useRaceStore((state) => state.resetRace);
   const raceStartedAt = useRaceStore((state) => state.raceStartedAt);
+  const raceEndedAt = useRaceStore((state) => state.raceEndedAt);
+  const endRaceClock = useRaceStore((state) => state.endRaceClock);
 
   const activeLeg = resolvedLegs[activeLegIndex] ?? null;
   const nextLegItem = resolvedLegs[activeLegIndex + 1] ?? null;
@@ -54,14 +55,14 @@ export default function RacePage() {
   const metrics = buildRaceMetrics(position, resolvedLegs, activeLegIndex);
 
   useEffect(() => {
-    if (!raceStartedAt) return;
+    if (!raceStartedAt || raceEndedAt) return;
 
     const interval = window.setInterval(() => {
       setNow(Date.now());
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [raceStartedAt]);
+  }, [raceEndedAt, raceStartedAt]);
 
   if (!mounted) {
     return (
@@ -82,7 +83,13 @@ export default function RacePage() {
       ? "0 / 0"
       : `${activeLegIndex + 1} / ${resolvedLegs.length}`;
 
-  const raceTime = raceStartedAt ? formatRaceTime(now - raceStartedAt) : "--:--";
+  const elapsedMs =
+    raceStartedAt != null
+      ? (raceEndedAt ?? now) - raceStartedAt
+      : null;
+
+  const raceTime = elapsedMs != null ? formatRaceTime(elapsedMs) : "--:--";
+  const raceFinished = raceEndedAt != null;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -126,24 +133,23 @@ export default function RacePage() {
 
         <section className="mt-3 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
           <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
+            <div>
               <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
-                Active Mark
+                Bearing to Mark
               </p>
               <p className="mt-3 text-6xl font-bold leading-none tracking-tight text-white">
-                {activeLeg?.mark.code ?? "-"}
+                {formatDegrees(metrics.bearingToActiveDeg)}
               </p>
             </div>
 
             <div className="shrink-0 text-right">
               <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                Distance to Mark
+                COG
               </p>
               <div className="mt-2 flex items-end justify-end gap-1">
                 <p className="text-3xl font-bold leading-none tabular-nums text-white">
-                  {formatNm(metrics.distanceToActiveNm)}
+                  {formatDegrees(metrics.cogTrueDeg)}
                 </p>
-                <span className="pb-0.5 text-sm text-zinc-400">nm</span>
               </div>
             </div>
           </div>
@@ -168,18 +174,33 @@ export default function RacePage() {
 
         <section className="mt-3 grid grid-cols-3 gap-3">
           <MetricCard
-            label="Bearing to Mark"
-            value={formatDegrees(metrics.bearingToActiveDeg)}
+            label="Active Mark"
+            value={activeLeg?.mark.code ?? "-"}
           />
           <MetricCard
-            label="COG"
-            value={formatDegrees(metrics.cogTrueDeg)}
+            label="Distance"
+            value={formatNm(metrics.distanceToActiveNm)}
+            unit="nm"
           />
           <MetricCard
             label="ETA"
             value={formatEta(metrics.etaSeconds)}
           />
         </section>
+
+        {raceFinished ? (
+          <section className="mt-4 rounded-3xl border border-emerald-800 bg-emerald-950/40 p-5">
+            <p className="text-xs uppercase tracking-[0.22em] text-emerald-300">
+              My Race Ended
+            </p>
+            <p className="mt-3 text-4xl font-bold tabular-nums text-white">
+              {raceTime}
+            </p>
+            <p className="mt-2 text-sm text-emerald-100/80">
+              Elapsed time is frozen until you start another race.
+            </p>
+          </section>
+        ) : null}
 
         <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
           <div className="flex items-start justify-between gap-4">
@@ -207,22 +228,25 @@ export default function RacePage() {
       <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-800 bg-black/95 backdrop-blur">
         <div className="mx-auto grid max-w-md grid-cols-3 gap-3 px-4 py-4">
           <button
-            onClick={previousLeg}
-            className="h-16 rounded-2xl border border-zinc-700 bg-zinc-900 text-lg font-semibold text-white active:scale-[0.98]"
+            onClick={endRaceClock}
+            disabled={raceFinished || !raceStartedAt}
+            className="h-16 rounded-2xl border border-red-900 bg-red-950 text-base font-semibold text-red-100 active:scale-[0.98] disabled:opacity-50"
           >
-            Prev
+            {raceFinished ? "Race Ended" : "End My Race"}
           </button>
 
           <button
-            onClick={resetRace}
-            className="h-16 rounded-2xl border border-zinc-700 bg-zinc-900 text-lg font-semibold text-white active:scale-[0.98]"
+            onClick={previousLeg}
+            disabled={raceFinished}
+            className="h-16 rounded-2xl border border-zinc-700 bg-zinc-900 text-base font-semibold text-white active:scale-[0.98] disabled:opacity-50"
           >
-            Reset
+            Previous
           </button>
 
           <button
             onClick={nextLeg}
-            className="h-16 rounded-2xl bg-white text-lg font-bold text-black active:scale-[0.98]"
+            disabled={raceFinished}
+            className="h-16 rounded-2xl bg-white text-base font-bold text-black active:scale-[0.98] disabled:opacity-50"
           >
             Next
           </button>
