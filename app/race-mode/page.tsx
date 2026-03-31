@@ -44,42 +44,54 @@ export default function RaceModePage() {
 
   const { position, error: gpsError, loading: gpsLoading } = useGpsPosition();
 
+  async function loadRaceModeData(options?: { background?: boolean }) {
+    try {
+      if (!options?.background) {
+        setLoading(true);
+      }
+      setError(null);
+
+      const [courses, courseLegs, marks, session] = await Promise.all([
+        fetchCourses(),
+        fetchCourseLegs(),
+        fetchMarks(),
+        fetchLiveRaceSession(),
+      ]);
+
+      setDbCourses(courses);
+      setDbCourseLegs(courseLegs);
+      setDbMarks(marks);
+      setLiveSession(session);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to load race mode.");
+    } finally {
+      if (!options?.background) {
+        setLoading(false);
+      }
+    }
+  }
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const [courses, courseLegs, marks, session] = await Promise.all([
-          fetchCourses(),
-          fetchCourseLegs(),
-          fetchMarks(),
-          fetchLiveRaceSession(),
-        ]);
-
-        setDbCourses(courses);
-        setDbCourseLegs(courseLegs);
-        setDbMarks(marks);
-        setLiveSession(session);
-      } catch (err) {
-        console.error(err);
-        setError(err instanceof Error ? err.message : "Failed to load race mode.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
+    void loadRaceModeData();
   }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       setNow(Date.now());
     }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void loadRaceModeData({ background: true });
+    }, 30000);
 
     return () => window.clearInterval(interval);
   }, []);
