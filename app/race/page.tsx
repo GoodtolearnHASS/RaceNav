@@ -11,6 +11,11 @@ import {
 } from "@/lib/navigation/format";
 import { useRaceStore } from "@/lib/store/raceStore";
 import HomeButton from "@/components/HomeButton";
+import {
+  fetchRaceResultForBoat,
+  type RaceResultRow,
+  saveRaceResult,
+} from "@/lib/supabase/results";
 
 function formatRaceTime(ms: number) {
   const totalSeconds = Math.max(Math.floor(ms / 1000), 0);
@@ -44,9 +49,20 @@ export default function RacePage() {
   const activeLegIndex = useRaceStore((state) => state.activeLegIndex);
   const nextLeg = useRaceStore((state) => state.nextLeg);
   const previousLeg = useRaceStore((state) => state.previousLeg);
+  const selectedBoatId = useRaceStore((state) => state.selectedBoatId);
+  const selectedBoatName = useRaceStore((state) => state.selectedBoatName);
+  const raceSessionId = useRaceStore((state) => state.raceSessionId);
   const raceStartedAt = useRaceStore((state) => state.raceStartedAt);
   const raceEndedAt = useRaceStore((state) => state.raceEndedAt);
-  const endRaceClock = useRaceStore((state) => state.endRaceClock);
+  const setRaceEndedAt = useRaceStore((state) => state.setRaceEndedAt);
+
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [replaceDialog, setReplaceDialog] = useState<{
+    finishedAt: number;
+    existingResult: RaceResultRow;
+  } | null>(null);
 
   const activeLeg = resolvedLegs[activeLegIndex] ?? null;
   const nextLegItem = resolvedLegs[activeLegIndex + 1] ?? null;
@@ -91,8 +107,136 @@ export default function RacePage() {
   const raceTime = elapsedMs != null ? formatRaceTime(elapsedMs) : "--:--";
   const raceFinished = raceEndedAt != null;
 
+  async function saveOfficialRaceResult(finishedAt: number) {
+    if (!raceStartedAt || !selectedBoatId || !raceSessionId) return;
+
+    const elapsedSeconds = Math.max(
+      Math.round((finishedAt - raceStartedAt) / 1000),
+      0
+    );
+
+    await saveRaceResult({
+      raceSessionId,
+      boatId: selectedBoatId,
+      startedAt: raceStartedAt,
+      finishedAt,
+      elapsedSeconds,
+    });
+  }
+
+  async function handleEndMyRace() {
+    if (!raceStartedAt || raceFinished) return;
+
+    const finishedAt = Date.now();
+
+    if (!selectedBoatId || !raceSessionId) {
+      setRaceEndedAt(finishedAt);
+      setSaveMessage("Race ended locally.");
+      setSaveError(null);
+      return;
+    }
+
+    try {
+      setSaveBusy(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const existingResult = await fetchRaceResultForBoat(raceSessionId, selectedBoatId);
+      if (existingResult) {
+        setReplaceDialog({ finishedAt, existingResult });
+        return;
+      }
+
+      await saveOfficialRaceResult(finishedAt);
+      setRaceEndedAt(finishedAt);
+      setSaveMessage("Race result saved.");
+    } catch (err) {
+      console.error(err);
+      setRaceEndedAt(null);
+      setSaveError(err instanceof Error ? err.message : "Failed to save race result.");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  async function handleConfirmReplace() {
+    if (!replaceDialog) return;
+
+    try {
+      setSaveBusy(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      await saveOfficialRaceResult(replaceDialog.finishedAt);
+      setRaceEndedAt(replaceDialog.finishedAt);
+      setReplaceDialog(null);
+      setSaveMessage("Race result replaced.");
+    } catch (err) {
+      console.error(err);
+      setSaveError(err instanceof Error ? err.message : "Failed to save race result.");
+    } finally {
+      setSaveBusy(false);
+    }
+  }
+
+  function handleCancelReplace() {
+    setReplaceDialog(null);
+    setSaveMessage("Existing result kept.");
+    setSaveError(null);
+  }
+
   return (
     <main className="min-h-screen bg-black text-white">
+      {replaceDialog ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+            <p className="text-xs uppercase tracking-[0.22em] text-amber-300">
+              Replace Result
+            </p>
+            <h2 className="mt-3 text-2xl font-bold text-white">
+              Existing result found for {selectedBoatName ?? "this boat"}
+            </h2>
+            <p className="mt-3 text-sm text-zinc-300">
+              A saved result already exists for this race. If you replace it, the
+              latest elapsed time and operator name will become the saved result.
+            </p>
+            <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/30 p-4 text-sm text-zinc-300">
+              <p>
+                Current saved time:{" "}
+                <span className="font-semibold text-white">
+                  {replaceDialog.existingResult.elapsed_seconds != null
+                    ? formatRaceTime(replaceDialog.existingResult.elapsed_seconds * 1000)
+                    : "--:--"}
+                </span>
+              </p>
+              <p className="mt-1">
+                Last saved by:{" "}
+                <span className="font-semibold text-white">
+                  {replaceDialog.existingResult.operator_name ?? "Unknown"}
+                </span>
+              </p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                onClick={handleCancelReplace}
+                disabled={saveBusy}
+                autoFocus
+                className="h-12 rounded-2xl bg-white text-sm font-bold text-black disabled:opacity-50"
+              >
+                Keep Existing
+              </button>
+              <button
+                onClick={handleConfirmReplace}
+                disabled={saveBusy}
+                className="h-12 rounded-2xl border border-amber-700 bg-amber-950/50 text-sm font-semibold text-amber-100 disabled:opacity-50"
+              >
+                {saveBusy ? "Saving..." : "Replace Result"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-28 pt-4">
         
 		<header className="sticky top-0 z-20 bg-black/95 pb-3 pt-2 backdrop-blur">
@@ -202,6 +346,9 @@ export default function RacePage() {
           </section>
         ) : null}
 
+        {saveMessage ? <p className="mt-4 text-sm text-emerald-300">{saveMessage}</p> : null}
+        {saveError ? <p className="mt-4 text-sm text-red-400">{saveError}</p> : null}
+
         <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -228,11 +375,11 @@ export default function RacePage() {
       <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-zinc-800 bg-black/95 backdrop-blur">
         <div className="mx-auto grid max-w-md grid-cols-3 gap-3 px-4 py-4">
           <button
-            onClick={endRaceClock}
-            disabled={raceFinished || !raceStartedAt}
+            onClick={handleEndMyRace}
+            disabled={saveBusy || raceFinished || !raceStartedAt}
             className="h-16 rounded-2xl border border-red-900 bg-red-950 text-base font-semibold text-red-100 active:scale-[0.98] disabled:opacity-50"
           >
-            {raceFinished ? "Race Ended" : "End My Race"}
+            {raceFinished ? "Race Ended" : saveBusy ? "Saving..." : "End My Race"}
           </button>
 
           <button

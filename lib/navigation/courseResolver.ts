@@ -8,7 +8,7 @@ export function resolveCourseForClass(
   const markMap = new Map(marks.map((mark) => [mark.code, mark]));
 
   const filteredSequence = course.sequence.filter((token) => {
-    if (boatClass === "cruisers2") return true;
+    if (boatClass === "cruisers3") return true;
     return !token.optionalForShortClass;
   });
 

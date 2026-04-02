@@ -10,7 +10,8 @@ import { mapDbCourseToCourse, mapDbMarkToMark } from "@/lib/navigation/mappers";
 import { useRaceStore } from "@/lib/store/raceStore";
 import { getSession } from "@/lib/supabase/session";
 import { signInWithEmail } from "@/lib/supabase/auth";
-import { getMyProfile, updateMyProfile } from "@/lib/supabase/profile";
+import { getMyProfile } from "@/lib/supabase/profile";
+import { fetchBoats, type BoatRow } from "@/lib/supabase/results";
 
 const RACE_OFFICER_EMAILS = new Set([
   "raceofficer@hsbc.ie",
@@ -23,6 +24,9 @@ export default function HomePage() {
   const startRace = useRaceStore((state) => state.startRace);
   const boatClass = useRaceStore((state) => state.boatClass);
   const setBoatClass = useRaceStore((state) => state.setBoatClass);
+  const selectedBoatId = useRaceStore((state) => state.selectedBoatId);
+  const setSelectedBoat = useRaceStore((state) => state.setSelectedBoat);
+  const setRaceSessionId = useRaceStore((state) => state.setRaceSessionId);
 
   const [mounted, setMounted] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -35,6 +39,7 @@ export default function HomePage() {
   const [dbCourses, setDbCourses] = useState<DbCourse[]>([]);
   const [dbCourseLegs, setDbCourseLegs] = useState<DbCourseLeg[]>([]);
   const [dbMarks, setDbMarks] = useState<DbMark[]>([]);
+  const [boats, setBoats] = useState<BoatRow[]>([]);
 
   const [selectedCourseId, setSelectedCourseId] = useState("");
 
@@ -44,10 +49,8 @@ export default function HomePage() {
   const [loginError, setLoginError] = useState<string | null>(null);
 
   const [displayName, setDisplayName] = useState("");
-  const [boatName, setBoatName] = useState("");
-  const [profileBusy, setProfileBusy] = useState(false);
-  const [profileMessage, setProfileMessage] = useState<string | null>(null);
-
+  const [preferredBoatNameValue, setPreferredBoatNameValue] = useState("");
+  const [showBoatPicker, setShowBoatPicker] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -78,23 +81,45 @@ export default function HomePage() {
         setLoading(true);
         setError(null);
 
-        const [courses, courseLegs, marks, profile] = await Promise.all([
+        const [courses, courseLegs, marks, profile, boatRows] = await Promise.all([
           fetchCourses(),
           fetchCourseLegs(),
           fetchMarks(),
           getMyProfile(),
+          fetchBoats(),
         ]);
 
         setDbCourses(courses);
         setDbCourseLegs(courseLegs);
         setDbMarks(marks);
+        setBoats(boatRows);
 
         if (courses.length > 0) {
           setSelectedCourseId(courses[0].id);
         }
 
         setDisplayName(profile?.display_name ?? "");
-        setBoatName(profile?.boat_name ?? "");
+        setPreferredBoatNameValue(preferredBoatName(profile?.boat_name ?? "", boatRows));
+
+        if (!selectedBoatId) {
+          const preferredBoat = boatRows.find(
+            (boat) =>
+              profile?.boat_name != null &&
+              boat.normalized_name === profile.boat_name.toLowerCase()
+          );
+
+          if (preferredBoat) {
+            setSelectedBoat(preferredBoat.id, preferredBoat.display_name);
+            setBoatClass(
+              preferredBoat.boat_class === "cruisers4" ? "cruisers4" : "cruisers3"
+            );
+            setShowBoatPicker(false);
+          } else {
+            setShowBoatPicker(true);
+          }
+        } else {
+          setShowBoatPicker(false);
+        }
       } catch (err) {
         console.error(err);
         setError("Failed to load courses from Supabase.");
@@ -104,7 +129,7 @@ export default function HomePage() {
     }
 
     loadData();
-  }, [isSignedIn]);
+  }, [isSignedIn, selectedBoatId, setBoatClass, setSelectedBoat]);
 
   async function handleLogin() {
     try {
@@ -119,25 +144,6 @@ export default function HomePage() {
       setLoginError("Sign in failed.");
     } finally {
       setLoginBusy(false);
-    }
-  }
-
-  async function handleSaveProfile() {
-    try {
-      setProfileBusy(true);
-      setProfileMessage(null);
-
-      await updateMyProfile({
-        display_name: displayName || null,
-        boat_name: boatName || null,
-      });
-
-      setProfileMessage("Profile saved.");
-    } catch (err) {
-      console.error(err);
-      setProfileMessage("Failed to save profile.");
-    } finally {
-      setProfileBusy(false);
     }
   }
 
@@ -230,8 +236,10 @@ export default function HomePage() {
     .filter((mark) => mark.latitude_decimal != null && mark.longitude_decimal != null)
     .map(mapDbMarkToMark);
 
-  function handleStartManualMode() {
+  async function handleStartManualMode() {
     if (!selectedCourse) return;
+    if (!selectedBoatId) return;
+    setRaceSessionId(null);
     startRace(selectedCourse, boatClass, marks);
     router.push("/timer");
   }
@@ -240,12 +248,20 @@ export default function HomePage() {
     router.push("/race-mode");
   }
 
-  function handleOpenRaceOfficer() {
+function handleOpenRaceOfficer() {
     router.push("/race-officer");
+  }
+
+  function handleOpenProfile() {
+    router.push("/profile");
   }
 
   const isRaceOfficerUser =
     currentEmail != null && RACE_OFFICER_EMAILS.has(currentEmail);
+  const selectedBoat =
+    boats.find((boat) => boat.id === selectedBoatId) ?? null;
+  const selectedBoatClassLabel =
+    selectedBoat?.boat_class === "cruisers4" ? "Cruisers 4" : "Cruisers 3";
 
   return (
     <main className="min-h-screen bg-black p-4 text-white">
@@ -280,47 +296,60 @@ export default function HomePage() {
           </section>
         ) : null}
 
-       
-            <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-              <p className="text-sm font-medium text-zinc-200">Race Mode</p>
-              <p className="mt-1 text-sm text-zinc-400">
+            <section className="mt-6 rounded-3xl border border-sky-800 bg-sky-950/30 p-5">
+              <p className="text-sm font-medium text-sky-100">Race Mode</p>
+              <p className="mt-1 text-sm text-sky-200/80">
                 Join the live race published by the race officer.
               </p>
 
-              <div className="mt-5">
-                <p className="mb-2 block text-sm font-medium text-zinc-300">
-                  Class
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setBoatClass("cruisers2")}
-                    className={`rounded-xl p-4 text-lg font-semibold ${
-                      boatClass === "cruisers2"
-                        ? "bg-white text-black"
-                        : "border border-zinc-700 bg-zinc-900 text-white"
-                    }`}
-                  >
-                    Cruisers 2
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setBoatClass("cruisers3")}
-                    className={`rounded-xl p-4 text-lg font-semibold ${
-                      boatClass === "cruisers3"
-                        ? "bg-white text-black"
-                        : "border border-zinc-700 bg-zinc-900 text-white"
-                    }`}
-                  >
-                    Cruisers 3
-                  </button>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <div className="rounded-full border border-sky-700 bg-sky-950/40 px-3 py-1.5 text-sm text-sky-100">
+                  {displayName || "No name set"}
                 </div>
+                <div className="rounded-full border border-sky-700 bg-sky-950/40 px-3 py-1.5 text-sm text-sky-100">
+                  {selectedBoat?.display_name ?? "No boat selected"}
+                </div>
+                <button
+                  onClick={() => setShowBoatPicker((current) => !current)}
+                  className="rounded-full border border-sky-700 bg-sky-950/40 px-3 py-1.5 text-sm font-medium text-sky-100"
+                >
+                  {showBoatPicker ? "Done" : selectedBoat ? "Change Boat" : "Choose Boat"}
+                </button>
               </div>
+
+              {showBoatPicker ? (
+                <div className="mt-4">
+                  <label className="mb-2 block text-sm font-medium text-sky-100">
+                    Boat
+                  </label>
+                  <select
+                    value={selectedBoatId ?? ""}
+                    onChange={(e) => {
+                      const boat = boats.find((item) => item.id === e.target.value) ?? null;
+                      setSelectedBoat(boat?.id ?? null, boat?.display_name ?? null);
+                      if (boat) {
+                        setBoatClass(
+                          boat.boat_class === "cruisers4" ? "cruisers4" : "cruisers3"
+                        );
+                        setShowBoatPicker(false);
+                      }
+                    }}
+                    className="w-full rounded-xl border border-sky-800 bg-sky-950/40 p-4 text-lg text-white"
+                  >
+                    <option value="">Select a boat</option>
+                    {boats.map((boat) => (
+                      <option key={boat.id} value={boat.id}>
+                        {boat.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               <button
                 onClick={handleJoinRaceMode}
-                className="mt-5 h-16 w-full rounded-2xl border border-zinc-700 bg-zinc-900 text-xl font-bold text-white"
+                disabled={!selectedBoatId}
+                className="mt-5 h-16 w-full rounded-2xl bg-sky-500 text-xl font-bold text-white disabled:opacity-50"
               >
                 Join Race Mode
               </button>
@@ -341,24 +370,24 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="mt-8 space-y-6 pb-8">
-            <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-              <p className="text-sm font-medium text-zinc-200">Manual Mode</p>
-              <p className="mt-1 text-sm text-zinc-400">
+            <section className="rounded-3xl border border-emerald-800 bg-emerald-950/30 p-5">
+              <p className="text-sm font-medium text-emerald-100">Manual Mode</p>
+              <p className="mt-1 text-sm text-emerald-200/80">
                 Choose a course and run your own timer.
               </p>
 
               <div className="mt-5">
-                <label className="mb-2 block text-sm font-medium text-zinc-300">
+                <label className="mb-2 block text-sm font-medium text-emerald-100">
                   Course
                 </label>
                 <select
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 p-4 text-lg text-white"
+                  className="w-full rounded-xl border border-emerald-800 bg-emerald-950/40 p-4 text-lg text-white"
                 >
                   {dbCourses.map((course) => {
                     const distance =
-                      boatClass === "cruisers2"
+                      boatClass === "cruisers3"
                         ? course.displayed_distance_long_nm
                         : course.displayed_distance_short_nm;
 
@@ -372,39 +401,23 @@ export default function HomePage() {
                 </select>
               </div>
 
-              <div className="mt-5">
-                <p className="mb-2 block text-sm font-medium text-zinc-300">
-                  Class
+              <div className="mt-5 rounded-2xl border border-emerald-800 bg-emerald-950/20 p-4 text-sm text-emerald-100">
+                <p>
+                  Boat{" "}
+                  <span className="font-semibold text-white">
+                    {selectedBoat?.display_name ?? "No boat selected"}
+                  </span>
                 </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setBoatClass("cruisers2")}
-                    className={`rounded-xl p-4 text-lg font-semibold ${
-                      boatClass === "cruisers2"
-                        ? "bg-white text-black"
-                        : "border border-zinc-700 bg-zinc-900 text-white"
-                    }`}
-                  >
-                    Cruisers 2
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setBoatClass("cruisers3")}
-                    className={`rounded-xl p-4 text-lg font-semibold ${
-                      boatClass === "cruisers3"
-                        ? "bg-white text-black"
-                        : "border border-zinc-700 bg-zinc-900 text-white"
-                    }`}
-                  >
-                    Cruisers 3
-                  </button>
-                </div>
+                <p className="mt-1">
+                  Class{" "}
+                  <span className="font-semibold text-white">
+                    {selectedBoat ? selectedBoatClassLabel : "--"}
+                  </span>
+                </p>
               </div>
 
               {selectedDbCourse && (
-                <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/30 p-4 text-sm text-zinc-300">
+                <div className="mt-5 rounded-2xl border border-emerald-800 bg-emerald-950/20 p-4 text-sm text-emerald-100">
                   <p>
                     Selected:{" "}
                     <span className="font-semibold text-white">
@@ -422,16 +435,24 @@ export default function HomePage() {
 
               <button
                 onClick={handleStartManualMode}
-                disabled={!selectedCourse}
-                className="mt-5 h-16 w-full rounded-2xl bg-blue-500 text-xl font-bold text-white disabled:opacity-50"
+                disabled={!selectedCourse || !selectedBoatId}
+                className="mt-5 h-16 w-full rounded-2xl bg-emerald-500 text-xl font-bold text-white disabled:opacity-50"
               >
                 Start Timer
               </button>
             </section>
 
             <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-3">
-              <AuthStatus compact />
-              {(displayName || boatName) ? (
+              <div className="flex items-center justify-between gap-3">
+                <AuthStatus compact />
+                <button
+                  onClick={handleOpenProfile}
+                  className="shrink-0 rounded-full border border-zinc-700 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Profile
+                </button>
+              </div>
+              {(displayName || selectedBoat || preferredBoatNameValue) ? (
                 <div className="mt-3 flex flex-wrap gap-2 border-t border-zinc-800 pt-3">
                   {displayName ? (
                     <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
@@ -439,9 +460,18 @@ export default function HomePage() {
                     </div>
                   ) : null}
 
-                  {boatName ? (
+                  {selectedBoat?.display_name ? (
                     <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
-                      {boatName}
+                      {selectedBoat.display_name}
+                    </div>
+                  ) : preferredBoatNameValue ? (
+                    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
+                      {preferredBoatNameValue}
+                    </div>
+                  ) : null}
+                  {selectedBoat ? (
+                    <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-200">
+                      {selectedBoatClassLabel}
                     </div>
                   ) : null}
                 </div>
@@ -453,4 +483,14 @@ export default function HomePage() {
       </div>
     </main>
   );
+}
+
+function preferredBoatName(profileBoatName: string, boats: BoatRow[]) {
+  if (!profileBoatName) return "";
+
+  const matchingBoat = boats.find(
+    (boat) => boat.normalized_name === profileBoatName.toLowerCase()
+  );
+
+  return matchingBoat?.display_name ?? profileBoatName;
 }

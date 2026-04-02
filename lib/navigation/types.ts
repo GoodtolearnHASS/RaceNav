@@ -1,4 +1,4 @@
-export type BoatClass = "cruisers2" | "cruisers3";
+export type BoatClass = "cruisers3" | "cruisers4";
 
 export type Coordinates = {
   lat: number;

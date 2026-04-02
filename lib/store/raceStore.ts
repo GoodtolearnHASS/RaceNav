@@ -5,6 +5,9 @@ import { resolveCourseForClass } from "@/lib/navigation/courseResolver";
 type RaceStore = {
   selectedCourse: Course | null;
   boatClass: BoatClass;
+  selectedBoatId: string | null;
+  selectedBoatName: string | null;
+  raceSessionId: string | null;
   resolvedLegs: ResolvedLeg[];
   activeLegIndex: number;
 
@@ -15,6 +18,8 @@ type RaceStore = {
   raceEndedAt: number | null;
 
   setBoatClass: (boatClass: BoatClass) => void;
+  setSelectedBoat: (boatId: string | null, boatName: string | null) => void;
+  setRaceSessionId: (raceSessionId: string | null) => void;
   startRace: (course: Course, boatClass: BoatClass, marks: Mark[]) => void;
   nextLeg: () => void;
   previousLeg: () => void;
@@ -28,12 +33,16 @@ type RaceStore = {
 
   startRaceClock: () => void;
   endRaceClock: () => void;
+  setRaceEndedAt: (timestamp: number | null) => void;
   setRaceStartedAt: (timestamp: number | null) => void;
 };
 
 export const useRaceStore = create<RaceStore>((set) => ({
   selectedCourse: null,
-  boatClass: "cruisers2",
+  boatClass: "cruisers3",
+  selectedBoatId: null,
+  selectedBoatName: null,
+  raceSessionId: null,
   resolvedLegs: [],
   activeLegIndex: 0,
 
@@ -46,6 +55,17 @@ export const useRaceStore = create<RaceStore>((set) => ({
   setBoatClass: (boatClass) =>
     set({
       boatClass,
+    }),
+
+  setSelectedBoat: (selectedBoatId, selectedBoatName) =>
+    set({
+      selectedBoatId,
+      selectedBoatName,
+    }),
+
+  setRaceSessionId: (raceSessionId) =>
+    set({
+      raceSessionId,
     }),
 
   startRace: (course, boatClass, marks) =>
@@ -133,6 +153,12 @@ export const useRaceStore = create<RaceStore>((set) => ({
       raceEndedAt: state.raceStartedAt ? Date.now() : null,
       countdownRunning: false,
     })),
+
+  setRaceEndedAt: (timestamp) =>
+    set({
+      raceEndedAt: timestamp,
+      countdownRunning: false,
+    }),
 
   setRaceStartedAt: (timestamp) =>
     set({

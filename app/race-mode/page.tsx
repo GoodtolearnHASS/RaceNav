@@ -28,6 +28,7 @@ export default function RaceModePage() {
 
   const startRace = useRaceStore((state) => state.startRace);
   const setRaceStartedAt = useRaceStore((state) => state.setRaceStartedAt);
+  const setRaceSessionId = useRaceStore((state) => state.setRaceSessionId);
   const boatClass = useRaceStore((state) => state.boatClass);
 
   const [mounted, setMounted] = useState(false);
@@ -61,6 +62,7 @@ export default function RaceModePage() {
       setDbCourseLegs(courseLegs);
       setDbMarks(marks);
       setLiveSession(session);
+      setRaceSessionId(session?.id ?? null);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Failed to load race mode.");
@@ -192,7 +194,7 @@ export default function RaceModePage() {
           Race Mode
         </p>
         <p className="mt-1 text-center text-sm font-medium uppercase tracking-[0.18em] text-zinc-300">
-          {boatClass === "cruisers2" ? "Cruisers 2" : "Cruisers 3"}
+          {boatClass === "cruisers3" ? "Cruisers 3" : "Cruisers 4"}
         </p>
       </div>
     </div>
