@@ -4,14 +4,11 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import AuthStatus from "@/components/AuthStatus";
-import type { DbCourse, DbCourseLeg, DbMark } from "@/lib/navigation/dbTypes";
-import { fetchCourseLegs, fetchCourses, fetchMarks } from "@/lib/supabase/queries";
-import { mapDbCourseToCourse, mapDbMarkToMark } from "@/lib/navigation/mappers";
 import { useRaceStore } from "@/lib/store/raceStore";
 import { getSession } from "@/lib/supabase/session";
 import { signInWithEmail } from "@/lib/supabase/auth";
 import { getMyProfile } from "@/lib/supabase/profile";
-import { fetchBoats, type BoatRow } from "@/lib/supabase/results";
+import { fetchBoatById, fetchBoats, type BoatRow } from "@/lib/supabase/results";
 
 const RACE_OFFICER_EMAILS = new Set([
   "raceofficer@hsbc.ie",
@@ -35,13 +32,8 @@ export default function HomePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [dbCourses, setDbCourses] = useState<DbCourse[]>([]);
-  const [dbCourseLegs, setDbCourseLegs] = useState<DbCourseLeg[]>([]);
-  const [dbMarks, setDbMarks] = useState<DbMark[]>([]);
   const [boats, setBoats] = useState<BoatRow[]>([]);
-
-  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [selectedBoat, setSelectedBoatState] = useState<BoatRow | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,35 +73,21 @@ export default function HomePage() {
         setLoading(true);
         setError(null);
 
-        const [courses, courseLegs, marks, profile, boatRows] = await Promise.all([
-          fetchCourses(),
-          fetchCourseLegs(),
-          fetchMarks(),
-          getMyProfile(),
-          fetchBoats(),
-        ]);
-
-        setDbCourses(courses);
-        setDbCourseLegs(courseLegs);
-        setDbMarks(marks);
-        setBoats(boatRows);
-
-        if (courses.length > 0) {
-          setSelectedCourseId(courses[0].id);
-        }
+        const profile = await getMyProfile();
 
         setDisplayName(profile?.display_name ?? "");
-        setPreferredBoatNameValue(preferredBoatName(profile?.boat_name ?? "", boatRows));
+
+        const preferredBoat =
+          profile?.default_boat_id != null
+            ? await fetchBoatById(profile.default_boat_id)
+            : null;
+
+        setPreferredBoatNameValue(preferredBoat?.display_name ?? "");
 
         if (!selectedBoatId) {
-          const preferredBoat = boatRows.find(
-            (boat) =>
-              profile?.boat_name != null &&
-              boat.normalized_name === profile.boat_name.toLowerCase()
-          );
-
           if (preferredBoat) {
             setSelectedBoat(preferredBoat.id, preferredBoat.display_name);
+            setSelectedBoatState(preferredBoat);
             setBoatClass(
               preferredBoat.boat_class === "cruisers4" ? "cruisers4" : "cruisers3"
             );
@@ -118,11 +96,13 @@ export default function HomePage() {
             setShowBoatPicker(true);
           }
         } else {
+          const activeBoat = await fetchBoatById(selectedBoatId);
+          setSelectedBoatState(activeBoat);
           setShowBoatPicker(false);
         }
       } catch (err) {
         console.error(err);
-        setError("Failed to load courses from Supabase.");
+        setError("Failed to load home page data.");
       } finally {
         setLoading(false);
       }
@@ -130,6 +110,22 @@ export default function HomePage() {
 
     loadData();
   }, [isSignedIn, selectedBoatId, setBoatClass, setSelectedBoat]);
+
+  useEffect(() => {
+    if (!showBoatPicker || boats.length > 0) return;
+
+    async function loadBoats() {
+      try {
+        const boatRows = await fetchBoats();
+        setBoats(boatRows);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load boats.");
+      }
+    }
+
+    void loadBoats();
+  }, [boats.length, showBoatPicker]);
 
   async function handleLogin() {
     try {
@@ -220,32 +216,12 @@ export default function HomePage() {
     );
   }
 
-  const selectedDbCourse =
-    dbCourses.find((course) => course.id === selectedCourseId) ?? null;
-
-  const selectedDbCourseLegs = selectedDbCourse
-    ? dbCourseLegs.filter((leg) => leg.course_id === selectedDbCourse.id)
-    : [];
-
-  const selectedCourse =
-    selectedDbCourse != null
-      ? mapDbCourseToCourse(selectedDbCourse, selectedDbCourseLegs)
-      : null;
-
-  const marks = dbMarks
-    .filter((mark) => mark.latitude_decimal != null && mark.longitude_decimal != null)
-    .map(mapDbMarkToMark);
-
-  async function handleStartManualMode() {
-    if (!selectedCourse) return;
-    if (!selectedBoatId) return;
-    setRaceSessionId(null);
-    startRace(selectedCourse, boatClass, marks);
-    router.push("/timer");
-  }
-
   function handleJoinRaceMode() {
     router.push("/race-mode");
+  }
+
+  function handleOpenManualMode() {
+    router.push("/manual");
   }
 
 function handleOpenRaceOfficer() {
@@ -258,8 +234,6 @@ function handleOpenRaceOfficer() {
 
   const isRaceOfficerUser =
     currentEmail != null && RACE_OFFICER_EMAILS.has(currentEmail);
-  const selectedBoat =
-    boats.find((boat) => boat.id === selectedBoatId) ?? null;
   const selectedBoatClassLabel =
     selectedBoat?.boat_class === "cruisers4" ? "Cruisers 4" : "Cruisers 3";
 
@@ -362,7 +336,7 @@ function handleOpenRaceOfficer() {
 
         {loading ? (
           <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-            <p className="text-zinc-300">Loading courses...</p>
+            <p className="text-zinc-300">Loading home page...</p>
           </div>
         ) : error ? (
           <div className="mt-8 rounded-2xl border border-red-800 bg-zinc-950 p-4">
@@ -371,74 +345,16 @@ function handleOpenRaceOfficer() {
         ) : (
           <div className="mt-8 space-y-6 pb-8">
             <section className="rounded-3xl border border-emerald-800 bg-emerald-950/30 p-5">
-              <p className="text-sm font-medium text-emerald-100">Manual Mode</p>
+              <p className="text-sm font-medium text-emerald-100">Racing Practice</p>
               <p className="mt-1 text-sm text-emerald-200/80">
-                Choose a course and run your own timer.
+                Open practice mode when you want to race outside the live session.
               </p>
 
-              <div className="mt-5">
-                <label className="mb-2 block text-sm font-medium text-emerald-100">
-                  Course
-                </label>
-                <select
-                  value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
-                  className="w-full rounded-xl border border-emerald-800 bg-emerald-950/40 p-4 text-lg text-white"
-                >
-                  {dbCourses.map((course) => {
-                    const distance =
-                      boatClass === "cruisers3"
-                        ? course.displayed_distance_long_nm
-                        : course.displayed_distance_short_nm;
-
-                    return (
-                      <option key={course.id} value={course.id}>
-                        {course.code} - {course.family_name} {course.course_number}
-                        {distance != null ? ` (${distance.toFixed(1)} nm)` : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div className="mt-5 rounded-2xl border border-emerald-800 bg-emerald-950/20 p-4 text-sm text-emerald-100">
-                <p>
-                  Boat{" "}
-                  <span className="font-semibold text-white">
-                    {selectedBoat?.display_name ?? "No boat selected"}
-                  </span>
-                </p>
-                <p className="mt-1">
-                  Class{" "}
-                  <span className="font-semibold text-white">
-                    {selectedBoat ? selectedBoatClassLabel : "--"}
-                  </span>
-                </p>
-              </div>
-
-              {selectedDbCourse && (
-                <div className="mt-5 rounded-2xl border border-emerald-800 bg-emerald-950/20 p-4 text-sm text-emerald-100">
-                  <p>
-                    Selected:{" "}
-                    <span className="font-semibold text-white">
-                      {selectedDbCourse.code}
-                    </span>
-                  </p>
-                  <p>
-                    Raw:{" "}
-                    <span className="text-zinc-400">
-                      {selectedDbCourse.raw_sequence}
-                    </span>
-                  </p>
-                </div>
-              )}
-
               <button
-                onClick={handleStartManualMode}
-                disabled={!selectedCourse || !selectedBoatId}
+                onClick={handleOpenManualMode}
                 className="mt-5 h-16 w-full rounded-2xl bg-emerald-500 text-xl font-bold text-white disabled:opacity-50"
               >
-                Start Timer
+                Racing Practice
               </button>
             </section>
 
@@ -483,14 +399,4 @@ function handleOpenRaceOfficer() {
       </div>
     </main>
   );
-}
-
-function preferredBoatName(profileBoatName: string, boats: BoatRow[]) {
-  if (!profileBoatName) return "";
-
-  const matchingBoat = boats.find(
-    (boat) => boat.normalized_name === profileBoatName.toLowerCase()
-  );
-
-  return matchingBoat?.display_name ?? profileBoatName;
 }

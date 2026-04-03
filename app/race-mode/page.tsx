@@ -15,6 +15,7 @@ import {
   type LiveRaceSession,
 } from "@/lib/supabase/raceOfficer";
 import HomeButton from "@/components/HomeButton";
+import { useScreenWakeLock } from "@/lib/device/useScreenWakeLock";
 
 function formatCountdown(totalSeconds: number) {
   const safe = Math.max(totalSeconds, 0);
@@ -25,6 +26,7 @@ function formatCountdown(totalSeconds: number) {
 
 export default function RaceModePage() {
   const router = useRouter();
+  useScreenWakeLock(true);
 
   const startRace = useRaceStore((state) => state.startRace);
   const setRaceStartedAt = useRaceStore((state) => state.setRaceStartedAt);

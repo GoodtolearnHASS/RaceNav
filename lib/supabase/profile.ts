@@ -3,7 +3,7 @@ import { supabase } from "./client";
 export type ProfileRow = {
   id: string;
   display_name: string | null;
-  boat_name: string | null;
+  default_boat_id: string | null;
 };
 
 export async function getMyProfile(): Promise<ProfileRow | null> {
@@ -17,7 +17,7 @@ export async function getMyProfile(): Promise<ProfileRow | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, boat_name")
+    .select("id, display_name, default_boat_id")
     .eq("id", user.id)
     .single();
 
@@ -27,7 +27,7 @@ export async function getMyProfile(): Promise<ProfileRow | null> {
 
 export async function updateMyProfile(updates: {
   display_name?: string | null;
-  boat_name?: string | null;
+  default_boat_id?: string | null;
 }) {
   const {
     data: { user },
@@ -45,7 +45,7 @@ export async function updateMyProfile(updates: {
   const { data, error } = await supabase
     .from("profiles")
     .upsert(payload)
-    .select("id, display_name, boat_name")
+    .select("id, display_name, default_boat_id")
     .single();
 
   if (error) throw error;

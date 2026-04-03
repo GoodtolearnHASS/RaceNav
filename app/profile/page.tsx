@@ -54,11 +54,8 @@ export default function ProfilePage() {
 
         setBoats(boatRows);
         setDisplayName(profile?.display_name ?? "");
-
         const preferredBoat = boatRows.find(
-          (boat) =>
-            profile?.boat_name != null &&
-            boat.normalized_name === profile.boat_name.toLowerCase()
+          (boat) => profile?.default_boat_id != null && boat.id === profile.default_boat_id
         );
 
         setSelectedBoatId(preferredBoat?.id ?? "");
@@ -86,7 +83,7 @@ export default function ProfilePage() {
 
       await updateMyProfile({
         display_name: displayName.trim() || null,
-        boat_name: selectedBoat?.normalized_name ?? null,
+        default_boat_id: selectedBoat?.id ?? null,
       });
 
       setMessage("Profile saved.");

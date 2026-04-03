@@ -29,6 +29,7 @@ export default function AuthStatus({
     try {
       await signOut();
       setEmail(null);
+      router.replace("/login");
       router.refresh();
     } catch (error) {
       console.error(error);

@@ -11,6 +11,7 @@ import {
 } from "@/lib/navigation/format";
 import { useRaceStore } from "@/lib/store/raceStore";
 import HomeButton from "@/components/HomeButton";
+import { useScreenWakeLock } from "@/lib/device/useScreenWakeLock";
 import {
   fetchRaceResultForBoat,
   type RaceResultRow,
@@ -80,6 +81,15 @@ export default function RacePage() {
     return () => window.clearInterval(interval);
   }, [raceEndedAt, raceStartedAt]);
 
+  const elapsedMs =
+    raceStartedAt != null
+      ? (raceEndedAt ?? now) - raceStartedAt
+      : null;
+
+  const raceTime = elapsedMs != null ? formatRaceTime(elapsedMs) : "--:--";
+  const raceFinished = raceEndedAt != null;
+  useScreenWakeLock(mounted && !raceFinished);
+
   if (!mounted) {
     return (
       <main className="min-h-screen bg-black px-4 text-white">
@@ -98,14 +108,6 @@ export default function RacePage() {
     resolvedLegs.length === 0
       ? "0 / 0"
       : `${activeLegIndex + 1} / ${resolvedLegs.length}`;
-
-  const elapsedMs =
-    raceStartedAt != null
-      ? (raceEndedAt ?? now) - raceStartedAt
-      : null;
-
-  const raceTime = elapsedMs != null ? formatRaceTime(elapsedMs) : "--:--";
-  const raceFinished = raceEndedAt != null;
 
   async function saveOfficialRaceResult(finishedAt: number) {
     if (!raceStartedAt || !selectedBoatId || !raceSessionId) return;

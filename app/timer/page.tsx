@@ -7,6 +7,7 @@ import { useGpsPosition } from "@/lib/gps/useGpsPosition";
 import { buildRaceMetrics } from "@/lib/navigation/metrics";
 import { formatDegrees } from "@/lib/navigation/format";
 import HomeButton from "@/components/HomeButton";
+import { useScreenWakeLock } from "@/lib/device/useScreenWakeLock";
 
 const PRESETS = [
   { label: "10", seconds: 600 },
@@ -41,6 +42,7 @@ export default function TimerPage() {
   const startRaceClock = useRaceStore((state) => state.startRaceClock);
 
   const { position, error, loading } = useGpsPosition();
+  useScreenWakeLock(true);
 
   const firstLeg = resolvedLegs[0] ?? null;
   const metrics = buildRaceMetrics(position, resolvedLegs, 0);

@@ -60,6 +60,18 @@ export async function fetchBoats(): Promise<BoatRow[]> {
   return (data ?? []) as BoatRow[];
 }
 
+export async function fetchBoatById(boatId: string): Promise<BoatRow | null> {
+  const { data, error } = await supabase
+    .from("boats")
+    .select("id, display_name, normalized_name, skipper_owner, boat_class, sail_number, is_active")
+    .eq("id", boatId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error) throw toReadableError("Load boat failed", error);
+  return (data ?? null) as BoatRow | null;
+}
+
 export async function fetchRaceResultForBoat(
   raceSessionId: string,
   boatId: string
