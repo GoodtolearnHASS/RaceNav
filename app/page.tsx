@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthStatus from "@/components/AuthStatus";
@@ -11,6 +11,34 @@ import { getMyProfile } from "@/lib/supabase/profile";
 import { fetchBoatById, fetchBoats, type BoatRow } from "@/lib/supabase/results";
 
 export default function HomePage() {
+  return (
+    <Suspense fallback={<HomePageLoading />}>
+      <HomePageContent />
+    </Suspense>
+  );
+}
+
+function HomePageLoading() {
+  return (
+    <main className="min-h-screen bg-black p-4 text-white">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
+        <div className="flex items-center gap-4">
+          <Image
+            src="/HSBC.png"
+            alt="HSBC Race Nav logo"
+            width={43}
+            height={52}
+            className="rounded-2xl"
+          />
+          <h1 className="text-4xl font-bold tracking-tight">HSBC Race Nav</h1>
+        </div>
+        <p className="mt-3 text-zinc-300">Loading...</p>
+      </div>
+    </main>
+  );
+}
+
+function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setBoatClass = useRaceStore((state) => state.setBoatClass);
@@ -137,23 +165,7 @@ export default function HomePage() {
   }
 
   if (!mounted || checkingAuth) {
-    return (
-      <main className="min-h-screen bg-black p-4 text-white">
-        <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/HSBC.png"
-              alt="HSBC Race Nav logo"
-              width={43}
-              height={52}
-              className="rounded-2xl"
-            />
-            <h1 className="text-4xl font-bold tracking-tight">HSBC Race Nav</h1>
-          </div>
-          <p className="mt-3 text-zinc-300">Loading...</p>
-        </div>
-      </main>
-    );
+    return <HomePageLoading />;
   }
 
   if (!isSignedIn) {
