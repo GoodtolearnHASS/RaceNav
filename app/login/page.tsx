@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmail } from "@/lib/supabase/auth";
-import { getSession } from "@/lib/supabase/session";
+import { getSession, isSessionTimeoutError } from "@/lib/supabase/session";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,6 +24,10 @@ export default function LoginPage() {
         }
       } catch (err) {
         console.error(err);
+        if (isSessionTimeoutError(err)) {
+          router.replace("/");
+          return;
+        }
       } finally {
         setCheckingAuth(false);
       }

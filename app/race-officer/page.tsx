@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import AuthStatus from "@/components/AuthStatus";
 import type { DbCourse } from "@/lib/navigation/dbTypes";
 import { fetchCourses } from "@/lib/supabase/queries";
 import { getSession } from "@/lib/supabase/session";
+import { getMyProfile } from "@/lib/supabase/profile";
 import {
   abandonLiveRace,
   fetchLiveRaceSession,
@@ -36,9 +38,11 @@ function formatCountdown(totalSeconds: number) {
 }
 
 export default function RaceOfficerPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [canManageRace, setCanManageRace] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   const [courses, setCourses] = useState<DbCourse[]>([]);
@@ -89,6 +93,11 @@ export default function RaceOfficerPage() {
   }, []);
 
   useEffect(() => {
+    if (!mounted || checkingAuth || error || !userId || canManageRace) return;
+    router.replace("/?error=race-officer-access");
+  }, [canManageRace, checkingAuth, error, mounted, router, userId]);
+
+  useEffect(() => {
     async function load() {
       try {
         setCheckingAuth(true);
@@ -98,6 +107,9 @@ export default function RaceOfficerPage() {
         const session = await getSession();
         const currentUserId = session?.user?.id ?? null;
         setUserId(currentUserId);
+
+        const profile = currentUserId ? await getMyProfile() : null;
+        setCanManageRace(profile?.is_race_officer ?? false);
 
         const [courseRows, sessionRow] = await Promise.all([
           fetchCourses(),
@@ -119,6 +131,7 @@ export default function RaceOfficerPage() {
       } catch (err) {
         console.error(err);
         setError("Failed to load race officer controls.");
+        setCanManageRace(false);
       } finally {
         setCheckingAuth(false);
         setLoading(false);
@@ -273,6 +286,25 @@ export default function RaceOfficerPage() {
         <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
           <h1 className="text-3xl font-bold tracking-tight">Race Officer</h1>
           <p className="mt-3 text-zinc-300">You need to sign in first.</p>
+          <div className="mt-4">
+            <AuthStatus />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!canManageRace) {
+    return (
+      <main className="min-h-screen bg-black p-4 text-white">
+        <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center">
+          <div className="mb-6">
+            <HomeButton />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Race Officer</h1>
+          <p className="mt-3 text-zinc-300">
+            Redirecting back to home...
+          </p>
           <div className="mt-4">
             <AuthStatus />
           </div>

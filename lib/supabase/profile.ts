@@ -4,7 +4,22 @@ export type ProfileRow = {
   id: string;
   display_name: string | null;
   default_boat_id: string | null;
+  is_race_officer: boolean;
 };
+
+function normalizeProfileRow(data: {
+  id: string;
+  display_name: string | null;
+  default_boat_id: string | null;
+  is_race_officer?: boolean | null;
+}): ProfileRow {
+  return {
+    id: data.id,
+    display_name: data.display_name,
+    default_boat_id: data.default_boat_id,
+    is_race_officer: data.is_race_officer ?? false,
+  };
+}
 
 export async function getMyProfile(): Promise<ProfileRow | null> {
   const {
@@ -15,14 +30,31 @@ export async function getMyProfile(): Promise<ProfileRow | null> {
   if (userError) throw userError;
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, display_name, default_boat_id")
-    .eq("id", user.id)
-    .single();
+  const profileQuery = async () =>
+    supabase
+      .from("profiles")
+      .select("id, display_name, default_boat_id, is_race_officer")
+      .eq("id", user.id)
+      .single();
+
+  let { data, error } = await profileQuery();
+
+  // Allow the app to keep working until the database migration is applied.
+  if (error?.code === "42703") {
+    const fallback = await supabase
+      .from("profiles")
+      .select("id, display_name, default_boat_id")
+      .eq("id", user.id)
+      .single();
+
+    data = fallback.data
+      ? { ...fallback.data, is_race_officer: false }
+      : null;
+    error = fallback.error;
+  }
 
   if (error) throw error;
-  return data as ProfileRow;
+  return data ? normalizeProfileRow(data) : null;
 }
 
 export async function updateMyProfile(updates: {
@@ -42,12 +74,26 @@ export async function updateMyProfile(updates: {
     ...updates,
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("profiles")
     .upsert(payload)
-    .select("id, display_name, default_boat_id")
+    .select("id, display_name, default_boat_id, is_race_officer")
     .single();
 
+  if (error?.code === "42703") {
+    const fallback = await supabase
+      .from("profiles")
+      .upsert(payload)
+      .select("id, display_name, default_boat_id")
+      .single();
+
+    data = fallback.data
+      ? { ...fallback.data, is_race_officer: false }
+      : null;
+    error = fallback.error;
+  }
+
   if (error) throw error;
-  return data as ProfileRow;
+  if (!data) throw new Error("Profile save returned no data");
+  return normalizeProfileRow(data);
 }

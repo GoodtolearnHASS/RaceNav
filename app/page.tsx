@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthStatus from "@/components/AuthStatus";
 import { useRaceStore } from "@/lib/store/raceStore";
 import { getSession } from "@/lib/supabase/session";
@@ -10,26 +10,17 @@ import { signInWithEmail } from "@/lib/supabase/auth";
 import { getMyProfile } from "@/lib/supabase/profile";
 import { fetchBoatById, fetchBoats, type BoatRow } from "@/lib/supabase/results";
 
-const RACE_OFFICER_EMAILS = new Set([
-  "raceofficer@hsbc.ie",
-  "raceofficer2@hsbc.ie",
-  "john.killeen@hsbc.ie",
-  "john@jonix.ie",
-]);
-
 export default function HomePage() {
   const router = useRouter();
-  const startRace = useRaceStore((state) => state.startRace);
-  const boatClass = useRaceStore((state) => state.boatClass);
+  const searchParams = useSearchParams();
   const setBoatClass = useRaceStore((state) => state.setBoatClass);
   const selectedBoatId = useRaceStore((state) => state.selectedBoatId);
   const setSelectedBoat = useRaceStore((state) => state.setSelectedBoat);
-  const setRaceSessionId = useRaceStore((state) => state.setRaceSessionId);
 
   const [mounted, setMounted] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+  const [isRaceOfficerUser, setIsRaceOfficerUser] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +35,8 @@ export default function HomePage() {
   const [displayName, setDisplayName] = useState("");
   const [preferredBoatNameValue, setPreferredBoatNameValue] = useState("");
   const [showBoatPicker, setShowBoatPicker] = useState(false);
+  const accessDenied =
+    searchParams.get("error") === "race-officer-access";
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -53,11 +46,9 @@ export default function HomePage() {
       try {
         const session = await getSession();
         setIsSignedIn(!!session);
-        setCurrentEmail(session?.user.email?.toLowerCase() ?? null);
       } catch (err) {
         console.error(err);
         setIsSignedIn(false);
-        setCurrentEmail(null);
       } finally {
         setCheckingAuth(false);
       }
@@ -77,6 +68,7 @@ export default function HomePage() {
         const profile = await getMyProfile();
 
         setDisplayName(profile?.display_name ?? "");
+        setIsRaceOfficerUser(profile?.is_race_officer ?? false);
 
         const preferredBoat =
           profile?.default_boat_id != null
@@ -104,6 +96,7 @@ export default function HomePage() {
       } catch (err) {
         console.error(err);
         setError("Failed to load home page data.");
+        setIsRaceOfficerUser(false);
       } finally {
         setLoading(false);
       }
@@ -135,7 +128,6 @@ export default function HomePage() {
 
       await signInWithEmail(email, password);
       setIsSignedIn(true);
-      setCurrentEmail(email.toLowerCase());
     } catch (err) {
       console.error(err);
       setLoginError("Sign in failed.");
@@ -233,8 +225,6 @@ function handleOpenRaceOfficer() {
     router.push("/profile");
   }
 
-  const isRaceOfficerUser =
-    currentEmail != null && RACE_OFFICER_EMAILS.has(currentEmail);
   const selectedBoatClassLabel =
     selectedBoat?.boat_class === "cruisers4" ? "Cruisers 4" : "Cruisers 3";
 
@@ -254,6 +244,14 @@ function handleOpenRaceOfficer() {
           </div>
           <p className="mt-3 text-zinc-300">Choose how you want to race.</p>
         </div>
+
+        {accessDenied ? (
+          <div className="mt-4 rounded-2xl border border-red-800 bg-red-950/30 p-4">
+            <p className="text-sm text-red-100">
+              Your account does not have race officer access.
+            </p>
+          </div>
+        ) : null}
 
         {isRaceOfficerUser ? (
           <section className="mt-4 rounded-3xl border border-amber-800 bg-amber-950/30 p-5">
