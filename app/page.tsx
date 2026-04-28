@@ -13,6 +13,7 @@ import { fetchBoatById, fetchBoats, type BoatRow } from "@/lib/supabase/results"
 const RACE_OFFICER_EMAILS = new Set([
   "raceofficer@hsbc.ie",
   "raceofficer2@hsbc.ie",
+  "john.killeen@hsbc.ie",
   "john@jonix.ie",
 ]);
 
